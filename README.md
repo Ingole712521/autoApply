@@ -2,9 +2,13 @@
   <img src="assests/logo2.svg" alt="naukri-api-client" width="680"/>
 </p>
 
-# NopeRi
+# Nopri
 
-> A lightweight, Selenium-free Python API client for [Naukri.com](https://www.naukri.com) — update your profile, upload your resume, and fetch personalised job recommendations programmatically.
+A lightweight and Selenium-free Python API client for Naukri.com, designed to help you update your profile, upload your resume, and retrieve personalized job recommendations programmatically.
+
+---
+
+**Status:** 🟢 Working (Last tested: April 2026)
 
 ---
 
@@ -145,7 +149,7 @@ class Job:
 
 Naukri's job-search endpoint (`/jobapi/v3/search`) requires a request header called `nkparam` — a signed token generated inside Naukri's obfuscated JavaScript bundle that changes with each browser session. Without a valid token the API returns `403 Forbidden`.
 
-**Current workaround — `nk_param_getter.py`:**  
+**Current workaround — `get_Nkparam.py`:**  
 A Selenium script that opens a real Chrome browser, navigates to a Naukri search page, intercepts the outgoing network request via Chrome's performance logs, and appends the captured `nkparam` value to `nkPool.txt`. The job client rotates through this pool at runtime.
 
 ```bash
