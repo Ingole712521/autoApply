@@ -83,7 +83,7 @@ Naukri fingerprints IPs for every request. Many cloud providers trigger MFA or g
 
 ```bash
 git https://github.com/Traverser25/NopeRi.git
-cd naukri-api-client
+cd Noperi
 pip install -r requirements.txt
 ```
 
