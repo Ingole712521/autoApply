@@ -28,7 +28,7 @@ def test_login(username, password):
     print("Session cookies:", session.cookies)
     print("Response:", res.text[:500])
 
-test_login("mynassae", ",usspass") 
+# test_login("mynassae", ",usspass") 
  
 
 
