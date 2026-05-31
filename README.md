@@ -405,4 +405,4 @@ This project is intended for personal automation of your **own** Naukri account.
 Pull requests are welcome!
 OTP/MFA login is now fully supported. The main area that could use help is **refactoring and cleanup** — improving code structure and formatting without breaking existing functionality.
 
----
+---# AutoApplyinNaukari
