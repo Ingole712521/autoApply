@@ -102,9 +102,9 @@ Edit `APPLICANT_PROFILE` in `config.py`:
 - Willing to relocate: **Yes**
 - Other yes/no questions: **Yes** when unclear
 
-## Deploy Naukri on Vercel (every 30 minutes)
+## Deploy Naukri on Vercel (once per day)
 
-See **[README_VERCEL.md](README_VERCEL.md)** for Cron + Blob setup. LinkedIn stays on your PC.
+See **[README_VERCEL.md](README_VERCEL.md)** for Cron + Blob setup (daily run). LinkedIn stays on your PC.
 
 ## Important notes
 

@@ -4,8 +4,10 @@ import os
 
 _IS_VERCEL = bool(os.getenv("VERCEL") or os.getenv("VERCEL_ENV"))
 
-# Run both platforms in a loop; wait this many minutes between cycles
+# Local loop: minutes between cycles when running react_devops_auto_apply.py on your PC
 LOOP_INTERVAL_MINUTES = 30
+
+# Vercel Cron schedule is in vercel.json (once daily: "30 4 * * *" = ~10:00 AM IST)
 
 # Set False to disable a platform without removing code
 ENABLE_NAUKRI = True

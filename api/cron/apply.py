@@ -1,5 +1,5 @@
 """
-Vercel Cron — runs Naukri auto-apply every 30 minutes.
+Vercel Cron — runs Naukri auto-apply once per day.
 
 Secured with CRON_SECRET (Vercel sends Authorization: Bearer <CRON_SECRET>).
 """

@@ -1,13 +1,13 @@
-# Deploy on Vercel (Naukri every 30 minutes)
+# Deploy on Vercel (Naukri once per day)
 
-Vercel runs **Naukri** auto-apply on a **Cron schedule every 30 minutes**.  
+Vercel runs **Naukri** auto-apply **once per day** on a Cron schedule.  
 **LinkedIn** still runs on your PC (Brave + Selenium) — Vercel cannot run a browser.
 
 ## Architecture
 
 | Where | What |
 |--------|------|
-| **Vercel Cron** | `GET /api/cron/apply` every 30 min → search & apply on Naukri |
+| **Vercel Cron** | `GET /api/cron/apply` once daily → search & apply on Naukri |
 | **Vercel Blob** | Stores `job_applications.xlsx` between runs |
 | **Your PC** | `python react_devops_auto_apply.py` for LinkedIn + optional local Naukri |
 
@@ -61,10 +61,20 @@ Enable for **Production** (and Preview if you want).
 Defined in `vercel.json`:
 
 ```json
-"schedule": "0/30 * * * *"
+"schedule": "30 4 * * *"
 ```
 
-Runs at **:00** and **:30** every hour (UTC). Change the cron expression if you need IST-aligned times.
+Runs **once per day** at **04:30 UTC** (~**10:00 AM IST**).
+
+To change the time, edit `vercel.json` (cron uses **UTC**). Examples:
+
+| Cron | When (UTC) | ~ IST |
+|------|------------|-------|
+| `30 4 * * *` | 04:30 daily | 10:00 AM |
+| `0 3 * * *` | 03:00 daily | 8:30 AM |
+| `0 9 * * *` | 09:00 daily | 2:30 PM |
+
+Redeploy after changing the schedule.
 
 ## 6. Verify
 
@@ -83,7 +93,7 @@ Response JSON includes `naukri.stats` (applied / skipped / failed).
 
 | Task | Command |
 |------|---------|
-| LinkedIn + Naukri locally, loop 30 min | `python react_devops_auto_apply.py` |
+| LinkedIn + Naukri locally, loop every 30 min | `python react_devops_auto_apply.py` |
 | One local cycle | `python react_devops_auto_apply.py --once` |
 | Naukri on Vercel only | Automatic via Cron |
 
