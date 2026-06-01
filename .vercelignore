@@ -1,0 +1,15 @@
+# Keep serverless bundle smaller (LinkedIn/browser not used on Vercel)
+google_login.py
+linkedin_login.py
+src/client/linkedin_client.py
+src/client/linkedin_easy_apply_form.py
+src/utils/browser.py
+nkPool.txt
+*.xlsx
+naukri_cookies.json
+linkedin_cookies.json
+venv/
+.venv/
+__pycache__/
+tests/
+src/tests/

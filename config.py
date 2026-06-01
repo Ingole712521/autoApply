@@ -1,4 +1,19 @@
-"""Configuration for Naukri auto-apply (React Developer & DevOps Engineer)."""
+"""Configuration for Naukri + LinkedIn auto-apply (React Developer & DevOps Engineer)."""
+
+import os
+
+_IS_VERCEL = bool(os.getenv("VERCEL") or os.getenv("VERCEL_ENV"))
+
+# Run both platforms in a loop; wait this many minutes between cycles
+LOOP_INTERVAL_MINUTES = 30
+
+# Set False to disable a platform without removing code
+ENABLE_NAUKRI = True
+# LinkedIn needs Brave/Selenium — off on Vercel serverless
+ENABLE_LINKEDIN = not _IS_VERCEL
+
+# Skip jobs when this company was already applied (any platform, Excel "Applied" rows)
+SKIP_IF_COMPANY_ALREADY_APPLIED = True
 
 # Search keywords — jobs are fetched for each entry (All India when location is empty)
 SEARCH_QUERIES = [
@@ -42,18 +57,47 @@ EXPERIENCE_YEARS = 2
 # Max age of job postings in days (1 = today, 3 = last 3 days)
 JOB_AGE_DAYS = 3
 
-# Pages to fetch per search query
-PAGES_PER_QUERY = 2
+# Pages to fetch per search query (1 on Vercel to stay within serverless timeout)
+PAGES_PER_QUERY = 1 if _IS_VERCEL else 2
 
 # Delay between API calls (seconds) — avoid rate limits
 SEARCH_DELAY_SEC = 1.5
 APPLY_DELAY_SEC = 3
 
-# Excel file — all runs append to this same file
-EXCEL_FILE = "naukri_jobs.xlsx"
+# Excel file — all runs append to this same file (Naukri + LinkedIn)
+EXCEL_FILE = "job_applications.xlsx"
 
 # Legacy CSV (optional backup; Excel is the main store)
 APPLIED_JOBS_CSV = "applied_jobs.csv"
+
+# LinkedIn job search (browser automation)
+LINKEDIN_COOKIES_FILE = "linkedin_cookies.json"
+LINKEDIN_LOCATION = "India"
+LINKEDIN_MAX_JOBS_PER_QUERY = 15
+LINKEDIN_SEARCH_QUERIES = [
+    "React Developer",
+    "React.js Developer",
+    "Frontend React Developer",
+    "DevOps Engineer",
+    "DevOps",
+    "AWS DevOps Engineer",
+    "Site Reliability Engineer",
+]
+
+# Browser headless for LinkedIn (set False to watch the browser)
+LINKEDIN_HEADLESS = False
+
+# Sign-in and LinkedIn automation use Brave (Chromium). Set False to use default Chrome.
+USE_BRAVE_BROWSER = True
+# Leave empty to auto-detect on Windows; or set full path to brave.exe
+BRAVE_BINARY_PATH = ""
+
+# LinkedIn Easy Apply popup — max Next/Review/Submit steps per job
+LINKEDIN_EASY_APPLY_MAX_STEPS = 25
+
+# OpenRouter AI for tricky LinkedIn questions (set OPENROUTER_API_KEY in .env)
+USE_OPENROUTER_FOR_LINKEDIN = True
+OPENROUTER_MODEL = "openai/gpt-oss-120b:free"
 
 # Your profile — used when Naukri asks questions during apply
 APPLICANT_PROFILE = {

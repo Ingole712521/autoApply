@@ -1,138 +1,135 @@
-# Naukri Auto-Apply — React Developer & DevOps Engineer
+# Naukri + LinkedIn Auto-Apply — React Developer & DevOps Engineer
 
-Automatically search [Naukri.com](https://www.naukri.com) for **React Developer** and **DevOps Engineer** jobs across India and apply to roles that support **Easy Apply** (one-click apply on Naukri).
-
-Built on the [NopeRi](https://github.com/Traverser25/NopeRi) API client (no browser needed for search/apply).
+Automatically search **Naukri.com** and **LinkedIn** for React and DevOps roles, apply to Easy Apply jobs, skip companies you already applied to, and log external apply URLs in Excel.
 
 ## What it does
 
-1. Logs into your Naukri account
-2. Searches for React and DevOps related keywords (all locations)
-3. Filters jobs whose title matches React or DevOps roles
-4. Applies automatically to Easy Apply jobs
-5. Skips jobs that redirect to external company sites
-6. Auto-fills basic questionnaires when possible
-7. Saves applied job IDs to `applied_jobs.csv` so you never apply twice
+1. Logs into Naukri (API) and LinkedIn (browser)
+2. Searches React / DevOps keywords
+3. **Repeats every 30 minutes** (configurable) until you stop it
+4. **Skips** jobs already applied (by job ID) and **companies** already applied (by company name)
+5. **Saves external redirect URLs** in Excel when apply goes to a company website
+6. **Auto-answers questionnaires**: Yes where possible, **30 days** notice, **relocate Yes**, **2 years** experience
 
 ## Setup
 
 ### 1. Install Python 3.10+
 
-### 2. Install dependencies
-
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Sign in (Google users — most common)
+### 2. OpenRouter API key (LinkedIn form questions)
 
-If you use **Sign in with Google** on Naukri, run this once:
+Copy `env.example` to `.env` and add your key:
+
+```bash
+copy env.example .env
+```
+
+```env
+OPENROUTER_API_KEY=your_key_here
+OPENROUTER_MODEL=openai/gpt-oss-120b:free
+```
+
+The bot fills Easy Apply popups automatically (Next → Review → Submit). AI is used when a question is not covered by your profile defaults.
+
+### 3. Naukri sign-in (Google)
 
 ```bash
 python google_login.py
 ```
 
-- Chrome opens the Naukri login page
-- Click **Sign in with Google** and complete login
-- Session is saved to `naukri_cookies.json`
-- Re-run only when the session expires (usually days/weeks)
+Saves `naukri_cookies.json`.
 
-### 4. Run auto-apply
+### 4. LinkedIn sign-in (one time)
+
+```bash
+python linkedin_login.py
+```
+
+Saves `linkedin_cookies.json`. **Brave** opens; complete login manually.
+
+### 5. Run auto-apply
 
 ```bash
 python react_devops_auto_apply.py
 ```
 
-### Alternative: email/password sign-in
+Runs Naukri + LinkedIn, then waits **30 minutes** and runs again. Press **Ctrl+C** to stop.
 
-If you use email + password (not Google), create `.env`:
+Single run (no loop):
 
 ```bash
-copy .env.example .env
+python react_devops_auto_apply.py --once
 ```
 
-```env
-USERNAME=your_email@example.com
-PASSWORD=your_naukri_password
-```
-
-## Configuration
-
-Edit `config.py` to customize:
+## Configuration (`config.py`)
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `SEARCH_QUERIES` | React, DevOps keywords | What to search on Naukri |
-| `TITLE_KEYWORDS` | react, devops, sre, aws... | Title filter after search |
-| `EXPERIENCE_YEARS` | 2 | Your experience level |
-| `JOB_AGE_DAYS` | 3 | Only jobs posted in last N days |
-| `PAGES_PER_QUERY` | 2 | Result pages per keyword |
+| `LOOP_INTERVAL_MINUTES` | 30 | Minutes between full cycles |
+| `ENABLE_NAUKRI` | True | Toggle Naukri |
+| `ENABLE_LINKEDIN` | True | Toggle LinkedIn |
+| `SKIP_IF_COMPANY_ALREADY_APPLIED` | True | Skip same company name |
+| `EXCEL_FILE` | `job_applications.xlsx` | Log file |
+| `APPLICANT_PROFILE` | notice 30, exp 2, relocate yes | Questionnaire answers |
+| `USE_BRAVE_BROWSER` | True | Sign-in and LinkedIn use Brave |
+| `BRAVE_BINARY_PATH` | (auto) | Full path to brave.exe if not detected |
+| `LINKEDIN_HEADLESS` | False | Set True to hide Brave |
+| `USE_OPENROUTER_FOR_LINKEDIN` | True | AI answers for unknown questions |
+| `OPENROUTER_MODEL` | openai/gpt-oss-120b:free | Model on OpenRouter |
+| `LINKEDIN_EASY_APPLY_MAX_STEPS` | 25 | Max Next/Submit steps per job |
 
-## Important notes
+## Excel output
 
-- **Run from home IP** — Naukri often blocks cloud/datacenter IPs (Azure, GitHub Actions). Home broadband works best.
-- **Easy Apply only** — Jobs that send you to a company website are skipped (you must apply there manually).
-- **MFA/OTP** — If login fails, log in once in your browser from the same network, then retry.
-- **Terms of service** — Use only on your own account. Respect [Naukri's Terms](https://www.naukri.com/termsAndConditions).
-
-## Schedule daily runs (optional)
-
-**Windows Task Scheduler:** Create a task that runs:
-
-```
-python d:\animioui\webscraper\react_devops_auto_apply.py
-```
-
-**Linux/macOS cron** (example — daily at 9 AM):
-
-```
-0 9 * * * cd /path/to/webscraper && python react_devops_auto_apply.py
-```
-
-## Output (Excel)
-
-All job data is saved to **`naukri_jobs.xlsx`** in the project folder.
-
-- **First run** — creates the Excel file with headers
-- **Every next run** — new rows are **added below** previous data (never overwritten)
-
-Each row includes:
+File: **`job_applications.xlsx`** (or set `EXCEL_FILE` in `.env`)
 
 | Column | Description |
 |--------|-------------|
-| Run Date / Run Time | When you ran the script |
-| Job ID, Title, Company | Job details |
-| Location, Experience, Salary | From Naukri listing |
-| Posted Date | When job was posted |
-| Search Keyword | Which search found it |
-| Skills | Required skills |
-| Job URL | Link to the job |
-| Status | Applied / Failed / Skipped |
-| Applied At | Timestamp if applied |
-| Notes | Error or skip reason |
+| Platform | Naukri or LinkedIn |
+| Job URL | Listing link |
+| **External Apply URL** | Company site when not Easy Apply |
+| Status | Applied / Skipped / Failed |
+| Company | Used to skip duplicate companies |
 
-A **run summary row** is added at the end of each run.
+## Profile answers (questionnaires)
 
-Change the file name in `config.py`: `EXCEL_FILE = "naukri_jobs.xlsx"`
+Edit `APPLICANT_PROFILE` in `config.py`:
+
+- Experience: **2 years**
+- Notice period: **30 days**
+- Willing to relocate: **Yes**
+- Other yes/no questions: **Yes** when unclear
+
+## Deploy Naukri on Vercel (every 30 minutes)
+
+See **[README_VERCEL.md](README_VERCEL.md)** for Cron + Blob setup. LinkedIn stays on your PC.
+
+## Important notes
+
+- **Home IP** recommended for Naukri (cloud IPs may get 403).
+- **LinkedIn** uses Selenium/**Brave** — keep the window usable; re-run `linkedin_login.py` if session expires.
+- **Terms of service** — use only on your own accounts.
 
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
-| `403 Forbidden` on search | Run from home IP; nkparam token may be blocked |
-| Login failed / OTP | Google users: run `python google_login.py` again |
-| No jobs found | Increase `JOB_AGE_DAYS` or `PAGES_PER_QUERY` in `config.py` |
-| Questionnaire failed | Update salary/experience in `src/client/job_client.py` PROFILE dict |
+| Naukri 403 | Home IP; run `google_login.py` again |
+| LinkedIn login failed | Run `python linkedin_login.py` |
+| No LinkedIn jobs | Set `LINKEDIN_HEADLESS = False` and watch the browser |
+| Old Excel (`naukri_jobs.xlsx`) | New runs use `job_applications.xlsx`; old file still works as reference |
 
 ## Project structure
 
 ```
-webscraper/
-├── google_login.py              # One-time Google sign-in (run first)
-├── react_devops_auto_apply.py   # Main script — run this daily
-├── naukri_cookies.json          # Saved session (auto-created, do not share)
-├── config.py                    # Search keywords & filters
-├── .env                         # Your credentials (not committed)
-├── applied_jobs.csv             # Applied job history (auto-created)
-└── src/                         # Naukri API client (from NopeRi)
+├── google_login.py              # Naukri Google sign-in
+├── linkedin_login.py            # LinkedIn sign-in
+├── react_devops_auto_apply.py   # Main script (loop + both platforms)
+├── config.py                    # Intervals, keywords, profile
+├── job_applications.xlsx        # Created on first run
+├── naukri_cookies.json
+├── linkedin_cookies.json
+└── src/client/linkedin_client.py
 ```

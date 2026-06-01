@@ -6,3 +6,6 @@ selenium
 pycryptodome 
 colorama
 openpyxl
+
+# Vercel serverless (api/cron) — omit selenium locally if you use a separate venv for Vercel
+# selenium is only needed for LinkedIn on your PC

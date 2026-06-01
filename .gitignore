@@ -19,7 +19,9 @@ venv/
 applied_jobs.csv
 nkPool.txt
 naukri_cookies.json
+linkedin_cookies.json
 naukri_jobs.xlsx
+job_applications.xlsx
 
 # OS files
 .DS_Store

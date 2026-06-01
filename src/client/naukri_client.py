@@ -177,27 +177,19 @@ class NaukriLoginClient:
 
         return self._finalize_session(token, self.session.cookies)
 
-    def login_from_cookies(self, cookies_path: str) -> NaukriSession:
-        """
-        Restore a session saved after Google (or browser) sign-in.
-        Run google_login.py once to create the cookie file.
-        """
-        cookies = load_cookies(cookies_path)
+    def login_from_cookies_data(self, cookies: list) -> NaukriSession:
+        """Restore session from a cookie list (e.g. NAUKRI_COOKIES_JSON on Vercel)."""
         apply_cookies_to_session(self.session, cookies)
 
         token = self._extract_bearer_token()
         if not token:
-            raise NaukriAuthError(
-                f"No nauk_at cookie in {cookies_path}. Run: python google_login.py"
-            )
+            raise NaukriAuthError("No nauk_at cookie in NAUKRI_COOKIES_JSON")
 
         self.naukri_session = NaukriSession(token, cookies_to_dict(cookies))
 
         if not self._validate_session():
             self.naukri_session = None
-            raise NaukriAuthError(
-                "Saved session expired. Run: python google_login.py"
-            )
+            raise NaukriAuthError("Saved session expired. Refresh NAUKRI_COOKIES_JSON")
 
         try:
             self.cache["form_key"] = self.get_form_key2()
@@ -205,6 +197,14 @@ class NaukriLoginClient:
             pass
 
         return self.naukri_session
+
+    def login_from_cookies(self, cookies_path: str) -> NaukriSession:
+        """
+        Restore a session saved after Google (or browser) sign-in.
+        Run google_login.py once to create the cookie file.
+        """
+        cookies = load_cookies(cookies_path)
+        return self.login_from_cookies_data(cookies)
 
     def _validate_session(self) -> bool:
         try:

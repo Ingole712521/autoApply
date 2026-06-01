@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Naukri Auto-Apply</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
+    body { max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; }
+    h1 { color: #38bdf8; }
+    code { background: #1e293b; padding: 0.15rem 0.4rem; border-radius: 4px; }
+    a { color: #38bdf8; }
+    .card { background: #1e293b; border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+    .ok { color: #4ade80; }
+    .warn { color: #fbbf24; }
+  </style>
+</head>
+<body>
+  <h1>Naukri Auto-Apply</h1>
+  <p>Deployed on Vercel. <strong>Naukri</strong> runs automatically every <strong>30 minutes</strong> via Cron.</p>
+
+  <div class="card">
+    <p><strong>Status:</strong> <span id="status">Loading…</span></p>
+    <p><a href="/api/health">/api/health</a> · Cron: <code>/api/cron/apply</code></p>
+  </div>
+
+  <div class="card">
+    <p class="warn"><strong>LinkedIn</strong> is not run on Vercel (needs Brave browser). Run locally:</p>
+    <pre><code>python linkedin_login.py
+python react_devops_auto_apply.py</code></pre>
+  </div>
+
+  <div class="card">
+    <p><strong>Required Vercel env vars</strong></p>
+    <ul>
+      <li><code>CRON_SECRET</code> — random string (cron auth)</li>
+      <li><code>NAUKRI_COOKIES_JSON</code> — cookies from <code>naukri_cookies.json</code></li>
+      <li><code>BLOB_READ_WRITE_TOKEN</code> — Vercel Blob (Excel history)</li>
+      <li><code>OPENROUTER_API_KEY</code> — optional</li>
+    </ul>
+    <p>See <code>README_VERCEL.md</code> in the repo for deploy steps.</p>
+  </div>
+
+  <script>
+    fetch('/api/health')
+      .then(r => r.json())
+      .then(d => {
+        const el = document.getElementById('status');
+        el.textContent = d.ok ? 'Running' : 'Error';
+        el.className = d.ok ? 'ok' : 'warn';
+      })
+      .catch(() => {
+        document.getElementById('status').textContent = 'API unreachable';
+      });
+  </script>
+</body>
+</html>

@@ -288,6 +288,34 @@ class NaukriJobClient:
         data = self.get_job_details(job_id, sid)
         return data.get("job", {}).get("responseManager") == "companyUrl"
 
+    def get_external_apply_url(self, job_id: str, sid: str = "") -> str:
+        """Return company-site apply URL when job uses external apply."""
+        data = self.get_job_details(job_id, sid)
+        job = data.get("job") or {}
+        for key in (
+            "companyApplyUrl",
+            "applyUrl",
+            "redirectUrl",
+            "externalApplyUrl",
+            "companyUrl",
+            "applyRedirectUrl",
+        ):
+            val = job.get(key)
+            if val and isinstance(val, str) and val.startswith("http"):
+                return val
+        nested = job.get("applyRedirect") or job.get("applyInfo") or {}
+        if isinstance(nested, dict):
+            for key in ("url", "applyUrl", "companyUrl"):
+                val = nested.get(key)
+                if val and isinstance(val, str) and val.startswith("http"):
+                    return val
+        jd = job.get("jdURL") or job.get("jdUrl") or ""
+        if jd and isinstance(jd, str):
+            if jd.startswith("http"):
+                return jd
+            return f"https://www.naukri.com{jd}" if jd.startswith("/") else jd
+        return f"https://www.naukri.com/job-listings-{job_id}"
+
     # ----------------------------------------------------------------------------------
     # Apply job
     # ----------------------------------------------------------------------------------
@@ -441,10 +469,10 @@ class NaukriJobClient:
                             key = pick_location(options, profile["current_location"])
                         elif any(skill in qtext for skill in profile["skills"]):
                             key = pick_yes(options)
-                        elif any(x in qtext for x in ["do you", "have you", "experience"]):
+                        elif any(x in qtext for x in ["do you", "have you", "experience", "familiar", "knowledge"]):
                             key = pick_yes(options)
                         else:
-                            key = list(options.keys())[0]
+                            key = pick_yes(options)
 
                         ans = [key]
                     else:
