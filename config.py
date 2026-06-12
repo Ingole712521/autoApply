@@ -1,4 +1,4 @@
-"""Configuration for Naukri + LinkedIn auto-apply (React Developer & DevOps Engineer)."""
+"""Configuration for multi-platform job auto-apply (Naukri, LinkedIn, Foundit, remote boards)."""
 
 import os
 
@@ -14,53 +14,83 @@ ENABLE_NAUKRI = True
 # LinkedIn needs Brave/Selenium — off on Vercel serverless
 ENABLE_LINKEDIN = not _IS_VERCEL
 
+# Extra job boards — fetch listings and log company + apply URL to Excel
+ENABLE_FOUNDIT = True
+ENABLE_REMOTE_OK = True
+ENABLE_SURELY_REMOTE = True
+ENABLE_REMOTIVE = True
+
+# Keywords used on Foundit + Surely Remote (Naukri uses SEARCH_QUERIES)
+EXTERNAL_BOARD_KEYWORDS = [
+    "DevOps Engineer",
+    "DevOps",
+    "AWS DevOps Engineer",
+    "Site Reliability Engineer",
+    "Platform Engineer",
+    "Kubernetes Engineer",
+]
+
+# Foundit pages per keyword (URL pattern: ...-jobs, ...-jobs-2, ...)
+FOUNDIT_MAX_PAGES = 2 if _IS_VERCEL else 5
+
 # Skip jobs when this company was already applied (any platform, Excel "Applied" rows)
 SKIP_IF_COMPANY_ALREADY_APPLIED = True
 
-# Search keywords — jobs are fetched for each entry (All India when location is empty)
+# Search keywords — empty location = All India on Naukri
+# DevOps-focused list; add React entries back if you want both roles.
 SEARCH_QUERIES = [
-    {"keyword": "React Developer", "location": ""},
-    {"keyword": "React.js Developer", "location": ""},
-    {"keyword": "Frontend React Developer", "location": ""},
-    {"keyword": "React Native Developer", "location": ""},
     {"keyword": "DevOps Engineer", "location": ""},
     {"keyword": "DevOps", "location": ""},
+    {"keyword": "Senior DevOps Engineer", "location": ""},
     {"keyword": "AWS DevOps Engineer", "location": ""},
+    {"keyword": "Azure DevOps Engineer", "location": ""},
+    {"keyword": "Cloud DevOps Engineer", "location": ""},
+    {"keyword": "Kubernetes Engineer", "location": ""},
     {"keyword": "Site Reliability Engineer", "location": ""},
+    {"keyword": "Platform Engineer", "location": ""},
+    {"keyword": "Infrastructure Engineer", "location": ""},
+    {"keyword": "CI/CD Engineer", "location": ""},
+    {"keyword": "Linux DevOps Engineer", "location": ""},
 ]
 
 # Only apply when job title matches at least one of these (case-insensitive)
 TITLE_KEYWORDS = [
-    "react",
-    "reactjs",
-    "react.js",
-    "react native",
-    "frontend",
-    "front-end",
     "devops",
     "dev ops",
     "sre",
     "site reliability",
     "platform engineer",
     "cloud engineer",
+    "infrastructure engineer",
     "kubernetes",
+    "k8s",
     "docker",
     "aws",
     "azure",
     "gcp",
     "ci/cd",
+    "cicd",
     "jenkins",
     "terraform",
+    "ansible",
+    "linux admin",
+    "release engineer",
 ]
 
 # Experience in years (Naukri search filter)
 EXPERIENCE_YEARS = 2
 
-# Max age of job postings in days (1 = today, 3 = last 3 days)
-JOB_AGE_DAYS = 3
+# Max age of job postings in days (1 = today only; 30 = last month)
+JOB_AGE_DAYS = 14
 
-# Pages to fetch per search query (1 on Vercel to stay within serverless timeout)
-PAGES_PER_QUERY = 1 if _IS_VERCEL else 2
+# Naukri returns up to 20 jobs per API page — raise pages to cover more listings.
+# Local: fetch until a page is empty or MAX_PAGES_PER_QUERY is reached.
+# Vercel: keep low to stay within the 5-minute serverless timeout.
+MAX_PAGES_PER_QUERY = 3 if _IS_VERCEL else 10
+PAGES_PER_QUERY = MAX_PAGES_PER_QUERY  # legacy alias used in logs
+
+# Results per Naukri search API call (Naukri default is 20)
+NAUKRI_RESULTS_PER_PAGE = 20
 
 # Delay between API calls (seconds) — avoid rate limits
 SEARCH_DELAY_SEC = 1.5

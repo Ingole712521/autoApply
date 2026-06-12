@@ -109,6 +109,10 @@ def run_apply_cycle() -> dict[str, Any]:
         if linkedin_result.get("exit_code", 0) != 0:
             exit_code = 1
 
+    external_result = _run_external_boards(runner, excel, applied_ids, applied_companies)
+    if external_result:
+        summary["external_boards"] = external_result
+
     if _is_vercel():
         blob_url = sync_excel_upload(Path(excel_file))
         summary["excel_blob_url"] = blob_url
@@ -157,6 +161,20 @@ def _run_naukri(runner, excel, excel_file, applied_ids, applied_companies) -> di
         excel.append_run_summary(stats, total_found=len(entries), platform="Naukri")
         result["stats"] = stats
     return result
+
+
+def _run_external_boards(runner, excel, applied_ids, applied_companies) -> dict[str, Any] | None:
+    from config import ENABLE_FOUNDIT, ENABLE_REMOTIVE, ENABLE_REMOTE_OK, ENABLE_SURELY_REMOTE
+
+    if not any([ENABLE_FOUNDIT, ENABLE_REMOTE_OK, ENABLE_SURELY_REMOTE, ENABLE_REMOTIVE]):
+        return None
+
+    board_stats = runner.collect_external_board_jobs(excel, applied_ids, applied_companies)
+    for platform, stats in board_stats.items():
+        total = stats["skipped_external"] + stats["skipped_applied"] + stats["skipped_company"]
+        if total:
+            excel.append_run_summary(stats, total_found=total, platform=platform)
+    return {"platforms": board_stats}
 
 
 def _run_linkedin(runner, excel, excel_file, applied_ids, applied_companies) -> dict[str, Any]:

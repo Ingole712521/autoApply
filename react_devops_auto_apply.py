@@ -28,10 +28,16 @@ from dotenv import load_dotenv
 
 from config import (
     APPLY_DELAY_SEC,
+    ENABLE_FOUNDIT,
     ENABLE_LINKEDIN,
     ENABLE_NAUKRI,
+    ENABLE_REMOTIVE,
+    ENABLE_REMOTE_OK,
+    ENABLE_SURELY_REMOTE,
     EXCEL_FILE,
     EXPERIENCE_YEARS,
+    EXTERNAL_BOARD_KEYWORDS,
+    FOUNDIT_MAX_PAGES,
     JOB_AGE_DAYS,
     LINKEDIN_COOKIES_FILE,
     LINKEDIN_HEADLESS,
@@ -39,11 +45,18 @@ from config import (
     LINKEDIN_MAX_JOBS_PER_QUERY,
     LINKEDIN_SEARCH_QUERIES,
     LOOP_INTERVAL_MINUTES,
-    PAGES_PER_QUERY,
+    MAX_PAGES_PER_QUERY,
+    NAUKRI_RESULTS_PER_PAGE,
     SEARCH_DELAY_SEC,
     SEARCH_QUERIES,
     SKIP_IF_COMPANY_ALREADY_APPLIED,
     TITLE_KEYWORDS,
+)
+from src.client.external_job_sources import (
+    fetch_foundit_jobs,
+    fetch_remotive_jobs,
+    fetch_remote_ok_jobs,
+    fetch_surely_remote_jobs,
 )
 from src.client.job_client import NaukriJobClient
 from src.client.naukri_client import NaukriLoginClient
@@ -63,9 +76,14 @@ def print_section(title: str) -> None:
     print(LINE)
 
 
-def title_matches_role(title: str) -> bool:
+def title_matches_role(title: str, tags: list[str] | None = None) -> bool:
     lower = title.lower()
-    return any(kw in lower for kw in TITLE_KEYWORDS)
+    if any(kw in lower for kw in TITLE_KEYWORDS):
+        return True
+    if tags:
+        tag_blob = " ".join(str(t) for t in tags).lower()
+        return any(kw in tag_blob for kw in TITLE_KEYWORDS)
+    return False
 
 
 def should_skip_company(excel: ExcelJobLogger, company: str, applied_companies: set[str]) -> bool:
@@ -80,14 +98,14 @@ def fetch_naukri_jobs(jc: NaukriJobClient) -> list[tuple]:
 
     print_section(
         f"Naukri search — {len(SEARCH_QUERIES)} queries, "
-        f"{PAGES_PER_QUERY} page(s) each, exp={EXPERIENCE_YEARS}yr"
+        f"up to {MAX_PAGES_PER_QUERY} page(s) each, exp={EXPERIENCE_YEARS}yr"
     )
 
     for query in SEARCH_QUERIES:
         keyword = query["keyword"]
         location = query.get("location", "")
 
-        for page in range(1, PAGES_PER_QUERY + 1):
+        for page in range(1, MAX_PAGES_PER_QUERY + 1):
             try:
                 jobs = jc.search_jobs(
                     keyword=keyword,
@@ -95,6 +113,7 @@ def fetch_naukri_jobs(jc: NaukriJobClient) -> list[tuple]:
                     experience=EXPERIENCE_YEARS,
                     job_age=JOB_AGE_DAYS,
                     page=page,
+                    results_per_page=NAUKRI_RESULTS_PER_PAGE,
                 )
             except NaukriAuthError as exc:
                 print(f" {Fore.RED}[AUTH]{Style.RESET_ALL} {keyword} p{page}: {exc}")
@@ -348,6 +367,140 @@ def apply_linkedin_jobs(
     return stats, len(all_jobs)
 
 
+def _empty_stats() -> dict:
+    return {
+        "applied": 0,
+        "skipped_applied": 0,
+        "skipped_company": 0,
+        "skipped_external": 0,
+        "failed": 0,
+    }
+
+
+def _log_external_job(
+    excel: ExcelJobLogger,
+    job,
+    keyword: str,
+    platform: str,
+    applied_ids: set[str],
+    applied_companies: set[str],
+    stats: dict,
+    *,
+    external_apply_url: str = "",
+) -> None:
+    """Log a job from an external board (manual apply on company / board site)."""
+    apply_url = external_apply_url or job.apply_link or ""
+
+    if job.job_id in applied_ids:
+        excel.append_job(
+            job, keyword, status="Skipped - Already Applied",
+            notes="Same job ID logged earlier", platform=platform,
+            external_apply_url=apply_url,
+        )
+        stats["skipped_applied"] += 1
+        return
+
+    if should_skip_company(excel, job.company, applied_companies):
+        excel.append_job(
+            job, keyword, status="Skipped - Company Applied",
+            notes="Company already applied on another platform", platform=platform,
+            external_apply_url=apply_url,
+        )
+        stats["skipped_company"] += 1
+        return
+
+    excel.append_job(
+        job, keyword,
+        status="External Apply",
+        notes="Apply on job board or company site (URL saved)",
+        platform=platform,
+        external_apply_url=apply_url,
+    )
+    applied_ids.add(job.job_id)
+    norm = normalize_company(job.company)
+    if norm:
+        applied_companies.add(norm)
+    stats["skipped_external"] += 1
+
+
+def collect_external_board_jobs(
+    excel: ExcelJobLogger,
+    applied_ids: set[str],
+    applied_companies: set[str],
+) -> dict[str, dict]:
+    """
+    Fetch Foundit, Remote OK, Surely Remote, Remotive and log to Excel.
+    Returns per-platform stats dicts.
+    """
+    platform_stats: dict[str, dict] = {}
+    seen_global: set[str] = set()
+
+    def ingest(platform: str, jobs: list, keyword: str) -> None:
+        stats = platform_stats.setdefault(platform, _empty_stats())
+        new = 0
+        for job in jobs:
+            if job.job_id in seen_global:
+                continue
+            if not title_matches_role(job.title, getattr(job, "tags", None)):
+                continue
+            seen_global.add(job.job_id)
+            new += 1
+            ext_url = job.apply_link or ""
+            if platform == "Surely Remote":
+                ext_url = "https://jobs.surelyremote.com/account/sign-in"
+            _log_external_job(
+                excel, job, keyword, platform, applied_ids, applied_companies, stats,
+                external_apply_url=ext_url,
+            )
+        return new
+
+    if ENABLE_REMOTE_OK:
+        print_section("Remote OK — fetching public API feed")
+        jobs = fetch_remote_ok_jobs()
+        matched = sum(
+            1 for j in jobs
+            if title_matches_role(j.title, j.tags) and j.job_id not in seen_global
+        )
+        ingest("Remote OK", jobs, "DevOps (feed)")
+        print(f" {Fore.WHITE}Fetched {len(jobs):>4}{Style.RESET_ALL} | {Fore.GREEN}{matched:>4} DevOps matches{Style.RESET_ALL}")
+        time.sleep(SEARCH_DELAY_SEC)
+
+    if ENABLE_REMOTIVE:
+        print_section("Remotive — fetching public API feed")
+        jobs = fetch_remotive_jobs()
+        matched = sum(
+            1 for j in jobs
+            if title_matches_role(j.title, j.tags) and j.job_id not in seen_global
+        )
+        ingest("Remotive", jobs, "DevOps (feed)")
+        print(f" {Fore.WHITE}Fetched {len(jobs):>4}{Style.RESET_ALL} | {Fore.GREEN}{matched:>4} DevOps matches{Style.RESET_ALL}")
+        time.sleep(SEARCH_DELAY_SEC)
+
+    if ENABLE_SURELY_REMOTE:
+        print_section(f"Surely Remote — {len(EXTERNAL_BOARD_KEYWORDS)} keywords")
+        for keyword in EXTERNAL_BOARD_KEYWORDS:
+            jobs = fetch_surely_remote_jobs(keyword)
+            new = ingest("Surely Remote", jobs, keyword)
+            print(
+                f" {Fore.WHITE}[{keyword[:36]:<36}]{Style.RESET_ALL} "
+                f"{len(jobs):>3} listed, {Fore.GREEN}{new:>3} new{Style.RESET_ALL}"
+            )
+            time.sleep(SEARCH_DELAY_SEC)
+
+    if ENABLE_FOUNDIT:
+        print_section(f"Foundit — {len(EXTERNAL_BOARD_KEYWORDS)} keywords, {FOUNDIT_MAX_PAGES} page(s) each")
+        for keyword in EXTERNAL_BOARD_KEYWORDS:
+            jobs = fetch_foundit_jobs(keyword, max_pages=FOUNDIT_MAX_PAGES, delay_sec=SEARCH_DELAY_SEC)
+            new = ingest("Foundit", jobs, keyword)
+            print(
+                f" {Fore.WHITE}[{keyword[:36]:<36}]{Style.RESET_ALL} "
+                f"{len(jobs):>3} scraped, {Fore.GREEN}{new:>3} new{Style.RESET_ALL}"
+            )
+            time.sleep(SEARCH_DELAY_SEC)
+
+    return platform_stats
+
+
 def print_summary(platform: str, total: int, stats: dict, excel_file: str) -> None:
     print_section(f"{platform} run summary")
     rows = [
@@ -437,6 +590,18 @@ def run_cycle(excel_file: str) -> int:
         finally:
             li.stop()
 
+    if any([ENABLE_FOUNDIT, ENABLE_REMOTE_OK, ENABLE_SURELY_REMOTE, ENABLE_REMOTIVE]):
+        board_stats = collect_external_board_jobs(excel, applied_ids, applied_companies)
+        for platform, stats in board_stats.items():
+            total_logged = (
+                stats["skipped_external"]
+                + stats["skipped_applied"]
+                + stats["skipped_company"]
+            )
+            if total_logged:
+                excel.append_run_summary(stats, total_found=total_logged, platform=platform)
+                print_summary(platform, total_logged, stats, excel_file)
+
     return exit_code
 
 
@@ -453,7 +618,15 @@ def main() -> int:
     interval = int(os.getenv("LOOP_INTERVAL_MINUTES", LOOP_INTERVAL_MINUTES))
 
     print_section("Auto-apply started")
+    ext = [n for n, on in [
+        ("Foundit", ENABLE_FOUNDIT),
+        ("RemoteOK", ENABLE_REMOTE_OK),
+        ("SurelyRemote", ENABLE_SURELY_REMOTE),
+        ("Remotive", ENABLE_REMOTIVE),
+    ] if on]
     print(f" {Fore.WHITE}Platforms:{Style.RESET_ALL} Naukri={ENABLE_NAUKRI}, LinkedIn={ENABLE_LINKEDIN}")
+    if ext:
+        print(f" {Fore.WHITE}Job boards:{Style.RESET_ALL} {', '.join(ext)}")
     print(f" {Fore.WHITE}Loop:{Style.RESET_ALL} {'once' if args.once else f'every {interval} minutes'}")
     print(f" {Fore.WHITE}Profile:{Style.RESET_ALL} 2yr exp, 30 days notice, relocate=yes, questions=yes")
 

@@ -116,12 +116,15 @@ class ExcelJobLogger:
         ws = wb[SHEET_NAME]
 
         skills = ", ".join(job.tags) if getattr(job, "tags", None) else ""
-        apply_link = getattr(job, "apply_link", "") or ""
-        if not apply_link and getattr(job, "job_id", None):
-            if str(job.job_id).startswith("li-"):
+        apply_link = getattr(job, "apply_link", "") or getattr(job, "job_url", "") or ""
+        job_id = str(getattr(job, "job_id", "") or "")
+        if not apply_link and job_id:
+            if job_id.startswith("li-"):
                 apply_link = getattr(job, "job_url", "") or ""
-            else:
-                apply_link = f"https://www.naukri.com/job-listings-{job.job_id}"
+            elif job_id.startswith(("rok-", "rmv-", "sr-", "fdit-")):
+                apply_link = ""
+            elif job_id.isdigit():
+                apply_link = f"https://www.naukri.com/job-listings-{job_id}"
 
         ws.append(
             [
