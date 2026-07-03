@@ -11,6 +11,7 @@ from config import (
     APPLY_DELAY_SEC,
     ENABLE_LINKEDIN,
     ENABLE_NAUKRI,
+    ENABLE_WORKATASTARTUP,
     EXCEL_FILE,
     EXPERIENCE_YEARS,
     JOB_AGE_DAYS,
@@ -25,6 +26,12 @@ from config import (
     SEARCH_QUERIES,
     SKIP_IF_COMPANY_ALREADY_APPLIED,
     TITLE_KEYWORDS,
+    WORKATASTARTUP_COMPANIES_URL,
+    WORKATASTARTUP_COOKIES_FILE,
+    WORKATASTARTUP_FILTER_BY_TITLE,
+    WORKATASTARTUP_HEADLESS,
+    WORKATASTARTUP_MAX_APPLIES,
+    WORKATASTARTUP_MAX_COMPANIES,
 )
 from src.client.job_client import NaukriJobClient
 from src.client.naukri_client import NaukriLoginClient
@@ -225,6 +232,83 @@ def apply_linkedin_jobs(li, excel: ExcelJobLogger, applied_ids: set[str], applie
     return stats, len(all_jobs)
 
 
+def fetch_workatastartup_jobs(client) -> list[tuple]:
+    print_section("Work at a Startup — scanning newest roles")
+    try:
+        jobs = client.fetch_jobs(WORKATASTARTUP_COMPANIES_URL, WORKATASTARTUP_MAX_COMPANIES)
+    except Exception as exc:
+        print(f' {Fore.RED}[FAIL]{Style.RESET_ALL} listing scrape: {exc}')
+        return []
+    entries: list[tuple] = []
+    for job in jobs:
+        if WORKATASTARTUP_FILTER_BY_TITLE and not title_matches_role(job.title):
+            continue
+        try:
+            client.hydrate_company(job)
+        except Exception:
+            pass
+        entries.append((job, "workatastartup"))
+    print(f' {Fore.WHITE}{len(jobs)} roles listed, {Fore.GREEN}{len(entries)} match filter{Style.RESET_ALL}')
+    print(f'\n {Fore.CYAN}Work at a Startup matching jobs: {Style.BRIGHT}{len(entries)}{Style.RESET_ALL}')
+    return entries
+
+
+def apply_workatastartup_jobs(client, excel: ExcelJobLogger, applied_ids: set[str], applied_companies: set[str], job_entries: list[tuple]) -> tuple[dict, int]:
+    from src.client.workatastartup_client import WorkAtAStartupLimitReached
+    stats = {'applied': 0, 'skipped_applied': 0, 'skipped_company': 0, 'skipped_external': 0, 'failed': 0}
+    print_section(f'Work at a Startup apply — {len(job_entries)} roles (cap {WORKATASTARTUP_MAX_APPLIES}/cycle)')
+    for index, (job, keyword) in enumerate(job_entries, start=1):
+        print(f'\n{LINE}')
+        print(f' {Fore.CYAN}{Style.BRIGHT}[{index}/{len(job_entries)}]{Style.RESET_ALL} {Style.BRIGHT}{job.title}{Style.RESET_ALL}')
+        print(f' {Fore.WHITE}Company:{Style.RESET_ALL} {Fore.YELLOW}{job.company}{Style.RESET_ALL}')
+        if job.job_id in applied_ids:
+            print(f' {Fore.WHITE}Skipped — job ID already applied{Style.RESET_ALL}')
+            excel.append_job(job, keyword, status='Skipped - Already Applied', notes='Same job ID on a later run', platform='WorkAtAStartup')
+            stats['skipped_applied'] += 1
+            continue
+        if should_skip_company(excel, job.company, applied_companies):
+            print(f' {Fore.WHITE}Skipped — company already applied{Style.RESET_ALL}')
+            excel.append_job(job, keyword, status='Skipped - Company Applied', notes='Applied to this company earlier', platform='WorkAtAStartup')
+            stats['skipped_company'] += 1
+            continue
+        if stats['applied'] >= WORKATASTARTUP_MAX_APPLIES:
+            print(f' {Fore.YELLOW}Skipped — per-cycle apply cap reached{Style.RESET_ALL}')
+            excel.append_job(job, keyword, status='Skipped - Apply Cap', notes='Reached WORKATASTARTUP_MAX_APPLIES', platform='WorkAtAStartup')
+            continue
+        try:
+            result = client.apply_job(job)
+            status = result.get('status', 'failed')
+            notes = result.get('notes', '')
+            if status == 'applied':
+                applied_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                print(f' {Fore.GREEN}Applied — {notes}{Style.RESET_ALL}')
+                excel.append_job(job, keyword, status='Applied', applied_at=applied_at, notes=notes, platform='WorkAtAStartup')
+                applied_ids.add(job.job_id)
+                norm = normalize_company(job.company)
+                if norm:
+                    applied_companies.add(norm)
+                stats['applied'] += 1
+            elif status == 'already_applied':
+                print(f' {Fore.WHITE}Skipped — already applied on Work at a Startup{Style.RESET_ALL}')
+                excel.append_job(job, keyword, status='Skipped - Already Applied', notes=notes, platform='WorkAtAStartup')
+                applied_ids.add(job.job_id)
+                stats['skipped_applied'] += 1
+            else:
+                print(f' {Fore.RED}Failed — {notes}{Style.RESET_ALL}')
+                excel.append_job(job, keyword, status='Failed', notes=notes, platform='WorkAtAStartup')
+                stats['failed'] += 1
+        except WorkAtAStartupLimitReached as exc:
+            print(f' {Fore.YELLOW}Stopping — {exc} (Work at a Startup allows 5 applications/week){Style.RESET_ALL}')
+            excel.append_job(job, keyword, status='Skipped - Weekly Limit', notes=str(exc), platform='WorkAtAStartup')
+            break
+        except Exception as exc:
+            print(f' {Fore.RED}Failed — {exc}{Style.RESET_ALL}')
+            excel.append_job(job, keyword, status='Failed', notes=str(exc), platform='WorkAtAStartup')
+            stats['failed'] += 1
+        time.sleep(APPLY_DELAY_SEC)
+    return stats, len(job_entries)
+
+
 def print_summary(platform: str, total: int, stats: dict, excel_file: str) -> None:
     print_section(f'{platform} run summary')
     rows = [('Jobs matched', total, Fore.WHITE), ('Already applied (skipped)', stats['skipped_applied'], Fore.WHITE), ('Company already applied', stats.get('skipped_company', 0), Fore.WHITE), ('Applied this run', stats['applied'], Fore.GREEN), ('External (URL in Excel)', stats['skipped_external'], Fore.YELLOW), ('Failed', stats['failed'], Fore.RED), ('Excel file', excel_file, Fore.CYAN)]
@@ -313,6 +397,33 @@ def run_cycle(excel_file: str, search_only: bool=False) -> int:
         finally:
             li.stop()
 
+    if ENABLE_WORKATASTARTUP:
+        from src.client.workatastartup_client import WorkAtAStartupClient
+        was_cookies = os.getenv('WORKATASTARTUP_COOKIES_FILE', WORKATASTARTUP_COOKIES_FILE)
+        was = WorkAtAStartupClient(was_cookies, headless=WORKATASTARTUP_HEADLESS)
+        print_section('Work at a Startup (browser)')
+        try:
+            was.start()
+            print(f' {Fore.GREEN}Work at a Startup session ready{Style.RESET_ALL}')
+            was_entries = fetch_workatastartup_jobs(was)
+            if search_only:
+                _print_search_only_jobs('Work at a Startup', was_entries)
+            elif was_entries:
+                stats, total = apply_workatastartup_jobs(was, excel, applied_ids, applied_companies, was_entries)
+                excel.append_run_summary(stats, total_found=total, platform='WorkAtAStartup')
+                print_summary('Work at a Startup', total, stats, excel_file)
+            else:
+                print(f'\n{Fore.YELLOW}No matching Work at a Startup roles this cycle.{Style.RESET_ALL}')
+        except FileNotFoundError as exc:
+            print(f' {Fore.YELLOW}{exc}{Style.RESET_ALL}')
+            print(f' {Fore.YELLOW}Run: python workatastartup_login.py{Style.RESET_ALL}')
+            exit_code = 1
+        except Exception as exc:
+            print(f' {Fore.RED}Work at a Startup error: {exc}{Style.RESET_ALL}')
+            exit_code = 1
+        finally:
+            was.stop()
+
     return exit_code
 
 def main() -> int:
@@ -325,7 +436,7 @@ def main() -> int:
     interval = int(os.getenv("LOOP_INTERVAL_MINUTES", LOOP_INTERVAL_MINUTES))
 
     print_section("Auto-apply started")
-    print(f" {Fore.WHITE}Platforms:{Style.RESET_ALL} Naukri={ENABLE_NAUKRI}, LinkedIn={ENABLE_LINKEDIN}")
+    print(f" {Fore.WHITE}Platforms:{Style.RESET_ALL} Naukri={ENABLE_NAUKRI}, LinkedIn={ENABLE_LINKEDIN}, WorkAtAStartup={ENABLE_WORKATASTARTUP}")
     print(f" {Fore.WHITE}Loop:{Style.RESET_ALL} {'once' if args.once else f'every {interval} minutes'}")
     print(f" {Fore.WHITE}Profile:{Style.RESET_ALL} 2yr exp, 30 days notice, relocate=yes, questions=yes")
 

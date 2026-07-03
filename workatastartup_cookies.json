@@ -1,0 +1,49 @@
+[
+  {
+    "domain": "www.workatastartup.com",
+    "httpOnly": true,
+    "name": "_bf_session_key",
+    "path": "/",
+    "sameSite": "Lax",
+    "secure": true,
+    "value": "bVfNyUqP%2BrgHfYqqXRlG%2BC4Ne69r9GF4v46i1lcSlA8GdTe2rn7It0HOObf1yDAzcxllMojMJJ3R3zWvd6Yl3UXHO9RJ%2Fsno6zxVWdKW4XkJbpZkwbYsVN%2FadjApHggFS%2BjLq%2B5GH%2B6pLOG1jeI74L32QU41efxoesO5Z56GGmcOjtG8jSQQ5iMnnO4XkQiuCxyVoKztICn7G1Z78pma4PK8XpltjZSaLOcXiC1Hwgiltm1jJWuCJ0%2BNGUsdilK%2FbTKu%2F8MX5xAJhrHVeLZTQ9l0Aqsg99E%3D--1Gu44LGi%2F8DyTvtk--qRiyMVGlJOmbjc0xTheszg%3D%3D"
+  },
+  {
+    "domain": ".workatastartup.com",
+    "expiry": 1798623779,
+    "httpOnly": false,
+    "name": "ph_phc_kqzJJG8aN5nevL0k1oW4Z8iAGswsxBnsWqIBcOuxjah_posthog",
+    "path": "/",
+    "sameSite": "Lax",
+    "secure": true,
+    "value": "%7B%22%24device_id%22%3A%22019f275c-09d7-7f63-9a08-8c669dc945eb%22%2C%22distinct_id%22%3A%22019f275c-09d7-7f63-9a08-8c669dc945eb%22%2C%22%24sesid%22%3A%5B1783071775788%2C%22019f275c-09f5-702f-9cc4-c03fa446e15c%22%2C1783071771101%5D%2C%22%24initial_person_info%22%3A%7B%22r%22%3A%22%24direct%22%2C%22u%22%3A%22https%3A%2F%2Fwww.workatastartup.com%2F%22%7D%2C%22%24user_state%22%3A%22anonymous%22%7D"
+  },
+  {
+    "domain": "www.workatastartup.com",
+    "httpOnly": false,
+    "name": "_bf_session_exists",
+    "path": "/",
+    "sameSite": "Lax",
+    "secure": true,
+    "value": "eyJfcmFpbHMiOnsibWVzc2FnZSI6ImRISjFaUT09IiwiZXhwIjpudWxsLCJwdXIiOiJjb29raWUuX2JmX3Nlc3Npb25fZXhpc3RzIn19--c09bf3da17accf4c53e92f910eef613c6f99527b"
+  },
+  {
+    "domain": ".workatastartup.com",
+    "expiry": 1798623808,
+    "httpOnly": true,
+    "name": "_sso.key",
+    "path": "/",
+    "sameSite": "Lax",
+    "secure": true,
+    "value": "usJMYRY5_Cve8Ug58dhR1QVym3IEKlKe"
+  },
+  {
+    "domain": "www.workatastartup.com",
+    "httpOnly": false,
+    "name": "XSRF-TOKEN",
+    "path": "/",
+    "sameSite": "Lax",
+    "secure": true,
+    "value": "Suzc0dJl746DYi4X4y-288fdnRJqEK9a346uwmTHGpM9MpJ3IXicj84ZLUyeE8WyU_-59JGljRtsbINJufO_Ow"
+  }
+]
