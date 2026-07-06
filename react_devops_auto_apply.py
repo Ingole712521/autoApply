@@ -40,7 +40,7 @@ from src.utils.company_tracker import normalize_company
 from src.utils.excel_logger import ExcelJobLogger
 load_dotenv()
 init(autoreset=True)
-LINE = f"{Fore.WHITE}{'─' * 68}{Style.RESET_ALL}"
+LINE = f"{Fore.WHITE}{'-' * 68}{Style.RESET_ALL}"
 
 def print_section(title: str) -> None:
     print(f'\n{LINE}')
